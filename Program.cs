@@ -61,7 +61,7 @@ namespace F1_Web_App
                 pattern: "{controller=Home}/{action=Index}/{id?}");
             app.MapRazorPages();
 
-            // Middleware за обработка на статус кодове
+            
             app.UseStatusCodePages(async context =>
             {
                 var response = context.HttpContext.Response;

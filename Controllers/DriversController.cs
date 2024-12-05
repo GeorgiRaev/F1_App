@@ -32,15 +32,10 @@ namespace F1_Web_App.Controllers
             return View(model);
         }
 
-        [Authorize]
+        [Authorize(Roles = "Administrator, Moderator")]
         [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
-            if (!User.IsInRole("Administrator"))
-            {
-                return Unauthorized();
-            }
-
             var model = await _context.Drivers
                 .Where(p => p.Id == id)
                 .Select(p => new DriverEditViewModel
@@ -60,29 +55,14 @@ namespace F1_Web_App.Controllers
                 })
                 .FirstOrDefaultAsync();
 
-            if (model == null)
-            {
-                return NotFound();
-            }
-
-            if (model.Teams == null)
-            {
-                model.Teams = new List<TeamListViewModel>();
-            }
-
             return View(model);
 
         }
 
-        [Authorize]
+        [Authorize(Roles = "Administrator, Moderator")]
         [HttpPost]
         public async Task<IActionResult> Edit(int id, DriverEditViewModel model)
         {
-            if (!User.IsInRole("Administrator"))
-            {
-                return Unauthorized();
-            }
-
             if (!ModelState.IsValid)
             {
                 model.Teams = _context.Teams
@@ -92,11 +72,6 @@ namespace F1_Web_App.Controllers
                         TeamName = t.Name
                     })
                     .ToList();
-
-                if (model.Teams == null)
-                {
-                    model.Teams = new List<TeamListViewModel>();
-                }
                 return View(model);
             }
 
@@ -118,15 +93,10 @@ namespace F1_Web_App.Controllers
 
         }
 
-        [Authorize]
+        [Authorize(Roles = "Administrator")]
         [HttpGet]
         public IActionResult CreateDriver()
         {
-            if (!User.IsInRole("Administrator"))
-            {
-                return Unauthorized();
-            }
-
             var model = new DriverEditViewModel
             {
                 Teams = _context.Teams
@@ -141,17 +111,29 @@ namespace F1_Web_App.Controllers
             return View("CreateDriver", model); 
         }
 
-        [Authorize]
+        [Authorize(Roles = "Administrator")]
         [HttpPost]
         public async Task<IActionResult> CreateDriver(DriverEditViewModel model)
         {
-            if (!User.IsInRole("Administrator"))
-            {
-                return Unauthorized();
-            }
-
             if (!ModelState.IsValid)
             {
+                model.Teams = _context.Teams
+                    .Select(t => new TeamListViewModel
+                    {
+                        TeamId = t.Id,
+                        TeamName = t.Name
+                    })
+                    .ToList();
+
+                return View(model);
+            }
+
+            var existingDriver = await _context.Drivers
+                .FirstOrDefaultAsync(d => d.DriverNumber == model.DriverNumber);
+
+            if (existingDriver != null)
+            {
+                ModelState.AddModelError("DriverNumber", "The driver number is already taken.");
                 model.Teams = _context.Teams
                     .Select(t => new TeamListViewModel
                     {
@@ -177,15 +159,11 @@ namespace F1_Web_App.Controllers
             return RedirectToAction(nameof(ListDrivers));
         }
 
-        [Authorize]
+
+        [Authorize(Roles = "Administrator")]
         [HttpGet]
         public IActionResult ConfirmDeleteDriver(int id)
         {
-            if (!User.IsInRole("Administrator"))
-            {
-                return Unauthorized();
-            }
-
             var driver = _context.Drivers
                 .Select(d => new DriverListViewModel
                 {
@@ -205,15 +183,10 @@ namespace F1_Web_App.Controllers
             return View(driver);
         }
 
-        [Authorize]
+        [Authorize(Roles = "Administrator")]
         [HttpPost]
         public IActionResult DeleteDriver(int id)
         {
-            if (!User.IsInRole("Administrator"))
-            {
-                return Unauthorized();
-            }
-
             var driver = _context.Drivers.Find(id);
             if (driver == null)
             {
