@@ -1,7 +1,0 @@
-C:\Users\Georgi\Projects\Final_Project_F1_App\Tests\F1_Web_App_Tests\bin\Release\net8.0\CoverletSourceRootsMapping_F1_Web_App_Tests
-C:\Users\Georgi\Projects\Final_Project_F1_App\Tests\F1_Web_App_Tests\obj\Release\net8.0\F1_Web_App_Tests.csproj.AssemblyReference.cache
-C:\Users\Georgi\Projects\Final_Project_F1_App\Tests\F1_Web_App_Tests\obj\Release\net8.0\F1_Web_App_Tests.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\Georgi\Projects\Final_Project_F1_App\Tests\F1_Web_App_Tests\obj\Release\net8.0\F1_Web_App_Tests.AssemblyInfoInputs.cache
-C:\Users\Georgi\Projects\Final_Project_F1_App\Tests\F1_Web_App_Tests\obj\Release\net8.0\F1_Web_App_Tests.AssemblyInfo.cs
-C:\Users\Georgi\Projects\Final_Project_F1_App\Tests\F1_Web_App_Tests\obj\Release\net8.0\F1_Web_App_Tests.csproj.CoreCompileInputs.cache
-C:\Users\Georgi\Projects\Final_Project_F1_App\Tests\F1_Web_App_Tests\obj\Release\net8.0\F1_Web_App_Tests.sourcelink.json
