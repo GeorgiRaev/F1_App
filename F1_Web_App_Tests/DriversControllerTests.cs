@@ -1,7 +1,9 @@
 using F1_Web_App.Controllers;
 using F1_Web_App.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using Xunit;
 
 namespace F1_Web_App_Tests
@@ -252,6 +254,72 @@ namespace F1_Web_App_Tests
             var result = controller.DeleteDriver(retiredDriverId);
 
             Assert.IsType<BadRequestResult>(result);
+        }
+
+        [Fact]
+        public void ConfirmDeleteDriver_ExistingDriver_ReturnsViewWithDriver()
+        {
+            var context = ContextHelper.GetContext();
+            context.SeedData();
+            var controller = new DriversController(context);
+            var existingDriverId = context.Drivers.First().Id;
+
+            var result = controller.ConfirmDeleteDriver(existingDriverId);
+
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var model = Assert.IsType<DriverListViewModel>(viewResult.Model);
+            Assert.Equal(existingDriverId, model.Id);
+        }
+
+        [Fact]
+        public void ConfirmDeleteDriver_NonExistingDriver_ReturnsNotFound()
+        {
+            var context = ContextHelper.GetContext();
+            context.SeedData();
+            var controller = new DriversController(context);
+            var nonExistingDriverId = -1;
+
+            var result = controller.ConfirmDeleteDriver(nonExistingDriverId);
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task ToggleDriverStatus_ExistingDriver_TogglesStatus()
+        {
+            using var context = ContextHelper.GetContext();
+            context.SeedData();
+            var controller = new DriversController(context);
+
+            controller.TempData = new Microsoft.AspNetCore.Mvc.ViewFeatures.TempDataDictionary(
+                new DefaultHttpContext(),
+                Mock.Of<Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider>()
+            );
+
+            var driver = context.Drivers.First();
+            var initialStatus = driver.IsRetired;
+
+            var result = await controller.ToggleDriverStatus(driver.Id);
+
+            var updatedDriver = context.Drivers.Find(driver.Id);
+            Assert.NotNull(updatedDriver);
+            Assert.NotEqual(initialStatus, updatedDriver.IsRetired);
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var model = Assert.IsAssignableFrom<IEnumerable<DriverListViewModel>>(viewResult.Model);
+            Assert.Contains(model, d => d.Id == driver.Id && d.IsRetired == updatedDriver.IsRetired);
+        }
+
+        [Fact]
+        public async Task ToggleDriverStatus_NonExistingDriver_ReturnsNotFound()
+        {
+            using var context = ContextHelper.GetContext();
+            context.SeedData();
+            var controller = new DriversController(context);
+            var nonExistingDriverId = -1;
+
+            var result = await controller.ToggleDriverStatus(nonExistingDriverId);
+
+            Assert.IsType<NotFoundResult>(result);
         }
     }
 }
