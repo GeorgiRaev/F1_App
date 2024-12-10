@@ -187,18 +187,38 @@ namespace F1_Web_App.Controllers
         [HttpPost]
         public IActionResult DeleteDriver(int id)
         {
-            var driver = _context.Drivers.Find(id);
-            if (driver == null)
+            if (_context == null)
             {
-                return NotFound();
+                return StatusCode(StatusCodes.Status500InternalServerError, "Database context is not available.");
             }
 
-            _context.Drivers.Remove(driver);
-            _context.SaveChanges();
+            try
+            {
+                var driver = _context.Drivers.Find(id);
+                if (driver == null)
+                {
+                    return NotFound();
+                }
 
-            TempData["SuccessMessage"] = "Driver deleted successfully.";
+                if (driver.IsRetired)
+                {
+                    return BadRequest();
+                }
 
-            return RedirectToAction("ListDrivers");
+                _context.Drivers.Remove(driver);
+                _context.SaveChanges();
+
+                if (TempData != null)
+                {
+                    TempData["SuccessMessage"] = "Driver deleted successfully.";
+                }
+
+                return RedirectToAction(nameof(ListDrivers));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while deleting the driver.");
+            }
         }
 
 
