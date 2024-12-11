@@ -6,7 +6,6 @@ namespace F1_Web_App.Data.Models
     {
         public int Id { get; set; }
 
-        [Range(1, int.MaxValue, ErrorMessage = "CircuitId must be a positive number.")]
         public int CircuitId { get; set; }
 
         public Circuit Circuit { get; set; } = null!;

@@ -10,21 +10,6 @@ namespace F1_Web_App_Tests
 {
     public class DriversControllerTests
     {
-        [Fact]
-        public async Task ListDrivers_ReturnsAllDrivers()
-        {
-            using var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var result = await controller.ListDrivers();
-
-            var okResult = result as ViewResult;
-            Assert.NotNull(okResult);
-            var model = okResult.Model as List<DriverListViewModel>;
-            Assert.NotNull(model);
-
-            Assert.Equal(model.Count, context.Drivers.Count());
-        }
 
         [Fact]
         public async Task StatusActiveOrAllDrivers_WhenShowActiveOnlyIsTrue_ReturnOnlyActive()
@@ -93,7 +78,7 @@ namespace F1_Web_App_Tests
             var result = await controller.Edit(driver.Id, model);
 
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(nameof(controller.ListDrivers), redirectToActionResult.ActionName);
+            Assert.Equal(nameof(controller.StatusActiveOrAllDrivers), redirectToActionResult.ActionName);
             var updatedDriver = await context.Drivers.FindAsync(driver.Id);
             Assert.NotNull(updatedDriver);
             Assert.Equal("Updated Name", updatedDriver.Name);
@@ -156,7 +141,7 @@ namespace F1_Web_App_Tests
             var result = await controller.CreateDriver(model);
 
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(nameof(controller.ListDrivers), redirectToActionResult.ActionName);
+            Assert.Equal(nameof(controller.StatusActiveOrAllDrivers), redirectToActionResult.ActionName);
             var driver = await context.Drivers.FirstOrDefaultAsync(d => d.DriverNumber == model.DriverNumber);
             Assert.NotNull(driver);
             Assert.Equal("New Driver", driver.Name);
@@ -222,7 +207,7 @@ namespace F1_Web_App_Tests
 
             // Assert
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(nameof(controller.ListDrivers), redirectToActionResult.ActionName);
+            Assert.Equal(nameof(controller.StatusActiveOrAllDrivers), redirectToActionResult.ActionName);
             var driver = context.Drivers.Find(driverId);
             Assert.Null(driver);
         }

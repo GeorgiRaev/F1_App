@@ -17,8 +17,6 @@ namespace F1_Web_App.Data.Models
         [MaxLength(ValidationConstants.DriverNameMaxLength)]
         public string Name { get; set; } = null!;
 
-
-        [Range(1, int.MaxValue, ErrorMessage = "TeamId must be a positive number.")]
         public int TeamId { get; set; }
 
         [Required]

@@ -12,7 +12,6 @@ namespace F1_Web_App.Data.Models
         [MaxLength(ValidationConstants.CircuitNameMaxLength)]
         public string Name { get; set; } = null!;
 
-        [Range(1, int.MaxValue, ErrorMessage = "CountryId must be a positive number.")]
         public int CountryId { get; set; }
 
         public Country Country { get; set; } = null!;

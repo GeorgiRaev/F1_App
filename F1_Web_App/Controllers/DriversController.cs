@@ -16,22 +16,6 @@ namespace F1_Web_App.Controllers
             _context = context;
         }
 
-        public async Task<IActionResult> ListDrivers()
-        {
-            var model = await _context.Drivers
-                .Select(d => new DriverListViewModel
-                {
-                    Id = d.Id,
-                    DriverNumber = d.DriverNumber,
-                    Name = d.Name,
-                    TeamName = d.Team.Name,
-                    ImageUrl = d.ImageUrl
-                })
-                .ToListAsync();
-
-            return View(model);
-        }
-
         [Authorize(Roles = "Administrator, Moderator")]
         [HttpGet]
         public async Task<IActionResult> Edit(int id)
@@ -89,7 +73,7 @@ namespace F1_Web_App.Controllers
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(ListDrivers));
+            return RedirectToAction(nameof(StatusActiveOrAllDrivers));
 
         }
 
@@ -156,7 +140,7 @@ namespace F1_Web_App.Controllers
             _context.Drivers.Add(driver);
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(ListDrivers));
+            return RedirectToAction(nameof(StatusActiveOrAllDrivers));
         }
 
 
@@ -213,7 +197,7 @@ namespace F1_Web_App.Controllers
                     TempData["SuccessMessage"] = "Driver deleted successfully.";
                 }
 
-                return RedirectToAction(nameof(ListDrivers));
+                return RedirectToAction(nameof(StatusActiveOrAllDrivers));
             }
             catch (Exception ex)
             {
@@ -237,39 +221,39 @@ namespace F1_Web_App.Controllers
 
             TempData["SuccessMessage"] = $"Driver status updated to {(driver.IsRetired ? "Retired" : "Active")}.";
 
-            var drivers = await _context.Drivers.ToListAsync();
-            var driverListViewModels = drivers.Select(d => new DriverListViewModel
+            var driverListViewModels = await _context.Drivers
+                .Select(d => new DriverListViewModel
             {
                 Id = d.Id,
                 DriverNumber = d.DriverNumber,
                 Name = d.Name,
-                TeamName = d.Team?.Name,
+                TeamName = d.Team.Name,
                 ImageUrl = d.ImageUrl,
                 IsRetired = d.IsRetired
-            }).ToList();
+            }).ToListAsync();
 
-            return View("ListDrivers", driverListViewModels);
+            return View("StatusActiveOrAllDrivers", driverListViewModels);
         }
 
 
         [Authorize(Roles = "Administrator, Moderator")]
         public async Task<IActionResult> StatusActiveOrAllDrivers(bool showActiveOnly = false)
         {
-            var drivers = await _context.Drivers.ToListAsync();
+            IQueryable<Driver> drivers = _context.Drivers;
             if (showActiveOnly)
             {
-                drivers = drivers.Where(d => !d.IsRetired).ToList();
+                drivers = drivers.Where(d => !d.IsRetired);
             }
 
-            var driverListViewModels = drivers.Select(d => new DriverListViewModel
+            var driverListViewModels = await drivers.Select(d => new DriverListViewModel
             {
                 Id = d.Id,
                 DriverNumber = d.DriverNumber,
                 Name = d.Name,
-                TeamName = d.Team?.Name,
+                TeamName = d.Team.Name,
                 ImageUrl = d.ImageUrl,
                 IsRetired = d.IsRetired
-            }).ToList();
+            }).ToListAsync();
 
             ViewBag.ShowActiveOnly = showActiveOnly;
             return View(driverListViewModels);
