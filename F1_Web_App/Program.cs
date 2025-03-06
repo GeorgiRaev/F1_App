@@ -1,4 +1,5 @@
 ﻿using F1_Web_App.Data;
+using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,8 @@ namespace F1_Web_App
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(connectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
@@ -25,7 +27,11 @@ namespace F1_Web_App
             })
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>();
+
             builder.Services.AddControllersWithViews();
+
+            // Registration MediatR
+            builder.Services.AddMediatR(typeof(Program).Assembly);
 
             var app = builder.Build();
 
@@ -61,7 +67,6 @@ namespace F1_Web_App
                 pattern: "{controller=Home}/{action=Index}/{id?}");
             app.MapRazorPages();
 
-            
             app.UseStatusCodePages(async context =>
             {
                 var response = context.HttpContext.Response;
@@ -79,7 +84,9 @@ namespace F1_Web_App
             app.Run();
         }
 
-        private static async Task SeedRolesAndAssignToUsersAsync(RoleManager<IdentityRole> roleManager, UserManager<IdentityUser> userManager)
+        private static async Task SeedRolesAndAssignToUsersAsync(
+            RoleManager<IdentityRole> roleManager,
+            UserManager<IdentityUser> userManager)
         {
             var roles = new[] { "Administrator", "Moderator", "User" };
 
