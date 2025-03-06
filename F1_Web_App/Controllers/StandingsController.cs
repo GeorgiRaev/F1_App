@@ -16,7 +16,7 @@ namespace F1_Web_App.Controllers
 
         public IActionResult ListDriverStandings()
         {
-            var currentYear = DateTime.Now.Year;
+            var currentYear = 2024;
 
             var standings = _context.Drivers
                 .Join(
@@ -46,7 +46,7 @@ namespace F1_Web_App.Controllers
         }
         public IActionResult ListTeamStandings()
         {
-            var currentYear = DateTime.Now.Year;
+            var currentYear = 2024;
 
             var teamStandings = _context.Teams
                 .Join(
