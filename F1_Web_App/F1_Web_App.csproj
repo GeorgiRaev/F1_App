@@ -31,6 +31,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Folder Include="Aplication\Drivers\Commands\" />
+		<Folder Include="Aplication\Drivers\Handlers\" />
 		<Folder Include="Data\Migrations\" />
 		<Folder Include="Migrations\" />
 		<Folder Include="Services\Contracts\" />
