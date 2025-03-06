@@ -2,6 +2,8 @@
 using F1_Web_App.Models;
 using F1_Web_App.Data.Models;
 
+namespace F1_Web_App.Application.Drivers.Commands;
+
 public class CreateDriverCommand : IRequest<Driver?>
 {
     public string Name { get; set; }
