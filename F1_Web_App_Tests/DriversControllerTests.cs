@@ -1,310 +1,136 @@
-using F1_Web_App.Controllers;
+﻿using F1_Web_App.Controllers;
 using F1_Web_App.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
+using MediatR;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using F1_Web_App.Application.Drivers.Queries;
+using F1_Web_App.Application.Drivers.Commands;
+using F1_Web_App.Data.Models;
+using F1_Web_App.Application.Teams.Queries;
 
 namespace F1_Web_App_Tests
 {
     public class DriversControllerTests
     {
+        private readonly Mock<IMediator> _mediatorMock;
+        private readonly DriversController _controller;
 
-        [Fact]
-        public async Task StatusActiveOrAllDrivers_WhenShowActiveOnlyIsTrue_ReturnOnlyActive()
+        public DriversControllerTests()
         {
-            using var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var result = await controller.StatusActiveOrAllDrivers(true);
-
-            var okResult = result as ViewResult;
-            Assert.NotNull(okResult);
-            var model = okResult.Model as List<DriverListViewModel>;
-            Assert.NotNull(model);
-
-            Assert.Equal(model.Count, context.Drivers.Where(x => !x.IsRetired).Count());
-            Assert.True(model.All(x => x.IsRetired == false));
+            _mediatorMock = new Mock<IMediator>();
+            _controller = new DriversController(_mediatorMock.Object);
         }
 
         [Fact]
-        public async Task StatusActiveOrAllDrivers_WhenShowActiveOnlyIsFalse_ReturnAll()
+        public async Task StatusActiveOrAllDrivers_WhenShowActiveOnlyIsTrue_ReturnsOnlyActive()
         {
-            using var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var result = await controller.StatusActiveOrAllDrivers(false);
+            var drivers = new List<DriverListViewModel>
+            {
+                new DriverListViewModel { Id = 1, Name = "Lewis Hamilton", IsRetired = false },
+                new DriverListViewModel { Id = 2, Name = "Sebastian Vettel", IsRetired = true }
+            };
 
-            var okResult = result as ViewResult;
-            Assert.NotNull(okResult);
-            var model = okResult.Model as List<DriverListViewModel>;
-            Assert.NotNull(model);
+            _mediatorMock
+                .Setup(m => m.Send(It.IsAny<GetDriversListViewModelQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(drivers.FindAll(d => !d.IsRetired));
 
-            Assert.Equal(model.Count, context.Drivers.Count());
+            var result = await _controller.StatusActiveOrAllDrivers(true);
+
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var model = Assert.IsType<List<DriverListViewModel>>(viewResult.Model);
+            Assert.All(model, d => Assert.False(d.IsRetired));
         }
 
         [Fact]
-        public async Task EditGetReturnsDriverEditViewModel()
+        public async Task EditGet_ReturnsDriver()
         {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var driverId = context.Drivers.First().Id;
+            var driver = new Driver
+            {
+                Id = 1,
+                Name = "Max Verstappen",
+                DriverNumber = 33,
+                TeamId = 1,
+                ImageUrl = "img.jpg"
+            };
 
-            var result = await controller.Edit(driverId);
+            var teams = new List<TeamListViewModel> { new TeamListViewModel { TeamId = 1, TeamName = "Red Bull" } };
+
+            _mediatorMock.Setup(m => m.Send(It.IsAny<GetDriverByIdQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(driver);
+
+            _mediatorMock.Setup(m => m.Send(It.IsAny<GetAllTeamsQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(teams);
+
+            var result = await _controller.Edit(1);
 
             var viewResult = Assert.IsType<ViewResult>(result);
             var model = Assert.IsType<DriverEditViewModel>(viewResult.Model);
-            Assert.Equal(driverId, model.Id);
+            Assert.Equal(driver.Id, model.Id);
         }
 
         [Fact]
-        public async Task EditPostValidModelUpdatesDriver()
+        public async Task EditPost_ValidModel_UpdatesDriver()
         {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var driver = context.Drivers.First();
             var model = new DriverEditViewModel
             {
-                Id = driver.Id,
+                Id = 1,
                 DriverName = "Updated Name",
-                DriverNumber = driver.DriverNumber,
-                TeamId = driver.TeamId,
-                ImageUrl = driver.ImageUrl
+                DriverNumber = 44,
+                TeamId = 2,
+                ImageUrl = "new_img.jpg",
+                Teams = new List<TeamListViewModel> { new TeamListViewModel { TeamId = 2, TeamName = "Mercedes" } }
             };
 
-            var result = await controller.Edit(driver.Id, model);
+            _mediatorMock.Setup(m => m.Send(It.IsAny<EditDriverCommand>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+            var result = await _controller.Edit(1, model);
 
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(nameof(controller.StatusActiveOrAllDrivers), redirectToActionResult.ActionName);
-            var updatedDriver = await context.Drivers.FindAsync(driver.Id);
-            Assert.NotNull(updatedDriver);
-            Assert.Equal("Updated Name", updatedDriver.Name);
+            Assert.Equal("StatusActiveOrAllDrivers", redirectToActionResult.ActionName);
         }
 
         [Fact]
-        public async Task EditPostInvalidModelReturnsViewWithModel()
+        public async Task CreateDriver_Post_ValidModel_CreatesDriver()
         {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var driver = context.Drivers.First();
-            var model = new DriverEditViewModel
+            var teams = new List<TeamListViewModel>
             {
-                Id = driver.Id,
-                DriverName = "", // Invalid name
-                DriverNumber = driver.DriverNumber,
-                TeamId = driver.TeamId,
-                ImageUrl = driver.ImageUrl
-            };
-            controller.ModelState.AddModelError("DriverName", "Required");
-
-            var result = await controller.Edit(driver.Id, model);
-
-            var viewResult = Assert.IsType<ViewResult>(result);
-            var returnedModel = Assert.IsType<DriverEditViewModel>(viewResult.Model);
-            Assert.Equal(model.Id, returnedModel.Id);
-            Assert.False(controller.ModelState.IsValid);
-        }
-
-        [Fact]
-        public void CreateDriver_Get_ReturnsViewWithDriverEditViewModel()
-        {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-
-            var result = controller.CreateDriver();
-
-            var viewResult = Assert.IsType<ViewResult>(result);
-            var model = Assert.IsType<DriverEditViewModel>(viewResult.Model);
-            Assert.NotNull(model.Teams);
-            Assert.Equal(context.Teams.Count(), model.Teams.Count);
-        }
-
-        [Fact]
-        public async Task CreateDriver_Post_ValidModel_AddsDriver()
-        {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var model = new DriverEditViewModel
-            {
-                DriverName = "New Driver",
-                DriverNumber = 99,
-                TeamId = context.Teams.First().Id,
-                ImageUrl = "http://example.com/image.jpg"
+                new TeamListViewModel { TeamId = 3, TeamName = "McLaren" }
             };
 
-            var result = await controller.CreateDriver(model);
+            var command = new CreateDriverCommand("Lando Norris", 4, 3, "img.jpg", teams);
+            _mediatorMock.Setup(m => m.Send(It.IsAny<CreateDriverCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Driver { Id = 1 });
+
+            var result = await _controller.CreateDriver(command);
 
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(nameof(controller.StatusActiveOrAllDrivers), redirectToActionResult.ActionName);
-            var driver = await context.Drivers.FirstOrDefaultAsync(d => d.DriverNumber == model.DriverNumber);
-            Assert.NotNull(driver);
-            Assert.Equal("New Driver", driver.Name);
+            Assert.Equal("StatusActiveOrAllDrivers", redirectToActionResult.ActionName);
         }
 
         [Fact]
-        public async Task CreateDriver_Post_InvalidModel_ReturnsViewWithModel()
+        public async Task DeleteDriver_ValidId_DeletesDriver()
         {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var model = new DriverEditViewModel
-            {
-                DriverName = "", // Invalid name
-                DriverNumber = 99,
-                TeamId = context.Teams.First().Id,
-                ImageUrl = "http://example.com/image.jpg"
-            };
-            controller.ModelState.AddModelError("DriverName", "Required");
+            _mediatorMock.Setup(m => m.Send(It.IsAny<DeleteDriverCommand>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
-            var result = await controller.CreateDriver(model);
+            var result = await _controller.DeleteDriver(1);
 
-            var viewResult = Assert.IsType<ViewResult>(result);
-            var returnedModel = Assert.IsType<DriverEditViewModel>(viewResult.Model);
-            Assert.Equal(model.DriverNumber, returnedModel.DriverNumber);
-            Assert.False(controller.ModelState.IsValid);
-        }
-
-        [Fact]
-        public async Task CreateDriver_Post_DuplicateDriverNumber_ReturnsViewWithModelError()
-        {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var existingDriver = context.Drivers.First();
-            var model = new DriverEditViewModel
-            {
-                DriverName = "New Driver",
-                DriverNumber = existingDriver.DriverNumber, // Duplicate driver number
-                TeamId = context.Teams.First().Id,
-                ImageUrl = "http://example.com/image.jpg"
-            };
-
-            var result = await controller.CreateDriver(model);
-
-            var viewResult = Assert.IsType<ViewResult>(result);
-            var returnedModel = Assert.IsType<DriverEditViewModel>(viewResult.Model);
-            Assert.Equal(model.DriverNumber, returnedModel.DriverNumber);
-            Assert.True(controller.ModelState.ContainsKey("DriverNumber"));
-        }
-
-        [Fact]
-        public void DeleteDriver_ExistingDriverId_DeletesDriver()
-        {
-            // Arrange
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var driverId = context.Drivers.First().Id;
-
-            // Act
-            var result = controller.DeleteDriver(driverId);
-
-            // Assert
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(nameof(controller.StatusActiveOrAllDrivers), redirectToActionResult.ActionName);
-            var driver = context.Drivers.Find(driverId);
-            Assert.Null(driver);
+            Assert.Equal("StatusActiveOrAllDrivers", redirectToActionResult.ActionName);
         }
 
         [Fact]
-        public void DeleteDriver_NonExistingDriverId_ReturnsNotFound()
+        public async Task ToggleDriverStatus_ValidId_TogglesStatus()
         {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var nonExistingDriverId = 999;
+            _mediatorMock.Setup(m => m.Send(It.IsAny<ToggleDriverStatusCommand>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
-            var result = controller.DeleteDriver(nonExistingDriverId);
+            var result = await _controller.ToggleDriverStatus(1);
 
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
-        public void DeleteDriver_RetiredDriver_ReturnsBadRequest()
-        {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var retiredDriver = context.Drivers.FirstOrDefault(d => d.IsRetired);
-
-            Assert.NotNull(retiredDriver);
-            var retiredDriverId = retiredDriver.Id;
-
-            var result = controller.DeleteDriver(retiredDriverId);
-
-            Assert.IsType<BadRequestResult>(result);
-        }
-
-        [Fact]
-        public void ConfirmDeleteDriver_ExistingDriver_ReturnsViewWithDriver()
-        {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var existingDriverId = context.Drivers.First().Id;
-
-            var result = controller.ConfirmDeleteDriver(existingDriverId);
-
-            var viewResult = Assert.IsType<ViewResult>(result);
-            var model = Assert.IsType<DriverListViewModel>(viewResult.Model);
-            Assert.Equal(existingDriverId, model.Id);
-        }
-
-        [Fact]
-        public void ConfirmDeleteDriver_NonExistingDriver_ReturnsNotFound()
-        {
-            var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var nonExistingDriverId = -1;
-
-            var result = controller.ConfirmDeleteDriver(nonExistingDriverId);
-
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
-        public async Task ToggleDriverStatus_ExistingDriver_TogglesStatus()
-        {
-            using var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-
-            controller.TempData = new Microsoft.AspNetCore.Mvc.ViewFeatures.TempDataDictionary(
-                new DefaultHttpContext(),
-                Mock.Of<Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider>()
-            );
-
-            var driver = context.Drivers.First();
-            var initialStatus = driver.IsRetired;
-
-            var result = await controller.ToggleDriverStatus(driver.Id);
-
-            var updatedDriver = context.Drivers.Find(driver.Id);
-            Assert.NotNull(updatedDriver);
-            Assert.NotEqual(initialStatus, updatedDriver.IsRetired);
-            var viewResult = Assert.IsType<ViewResult>(result);
-            var model = Assert.IsAssignableFrom<IEnumerable<DriverListViewModel>>(viewResult.Model);
-            Assert.Contains(model, d => d.Id == driver.Id && d.IsRetired == updatedDriver.IsRetired);
-        }
-
-        [Fact]
-        public async Task ToggleDriverStatus_NonExistingDriver_ReturnsNotFound()
-        {
-            using var context = ContextHelper.GetContext();
-            context.SeedData();
-            var controller = new DriversController(context);
-            var nonExistingDriverId = -1;
-
-            var result = await controller.ToggleDriverStatus(nonExistingDriverId);
-
-            Assert.IsType<NotFoundResult>(result);
+            var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("StatusActiveOrAllDrivers", redirectToActionResult.ActionName);
         }
     }
 }

@@ -1,47 +1,45 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using F1_Web_App.Data;
-using F1_Web_App.Models;
 using Microsoft.AspNetCore.Authorization;
-using F1_Web_App.Data.Models;
+using MediatR;
+using F1_Web_App.Application.Drivers.Commands;
+using F1_Web_App.Application.Drivers.Queries;
+using System.Threading.Tasks;
+using F1_Web_App.Application.Teams.Queries;
+using F1_Web_App.Models;
 
 namespace F1_Web_App.Controllers
 {
+    [Authorize]
     public class DriversController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IMediator _mediator;
 
-        public DriversController(ApplicationDbContext context)
+        public DriversController(IMediator mediator)
         {
-            _context = context;
+            _mediator = mediator;
         }
 
-        [Authorize(Roles = "Administrator, Moderator")]
         [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
-            var model = await _context.Drivers
-                .Where(p => p.Id == id)
-                .Select(p => new DriverEditViewModel
-                {
-                    Id = p.Id,
-                    DriverName = p.Name,
-                    DriverNumber = p.DriverNumber,
-                    TeamId = p.TeamId,
-                    ImageUrl = p.ImageUrl,
-                    Teams = _context.Teams
-                        .Select(t => new TeamListViewModel
-                        {
-                            TeamId = t.Id,
-                            TeamName = t.Name
-                        })
-                        .ToList()
-                })
-                .FirstOrDefaultAsync();
+            var driver = await _mediator.Send(new GetDriverByIdQuery(id));
+            if (driver == null) return NotFound();
 
-            return View(model);
+            var teams = await _mediator.Send(new GetAllTeamsQuery());
 
+            var viewModel = new DriverEditViewModel
+            {
+                Id = driver.Id,
+                DriverName = driver.Name,
+                DriverNumber = driver.DriverNumber,
+                TeamId = driver.TeamId,
+                ImageUrl = driver.ImageUrl,
+                Teams = teams
+            };
+
+            return View(viewModel); 
         }
+
 
         [Authorize(Roles = "Administrator, Moderator")]
         [HttpPost]
@@ -49,214 +47,97 @@ namespace F1_Web_App.Controllers
         {
             if (!ModelState.IsValid)
             {
-                model.Teams = _context.Teams
-                    .Select(t => new TeamListViewModel
-                    {
-                        TeamId = t.Id,
-                        TeamName = t.Name
-                    })
-                    .ToList();
+                model.Teams = await _mediator.Send(new GetAllTeamsQuery());
                 return View(model);
             }
 
-            var driver = await _context.Drivers.FindAsync(id);
+            var command = new EditDriverCommand(model.Id, model.DriverName, model.DriverNumber, model.TeamId, model.ImageUrl);
 
-            if (driver == null)
-            {
-                return BadRequest();
-            }
+            var result = await _mediator.Send(command);
+            if (!result) return BadRequest();
 
-            driver.Name = model.DriverName;
-            driver.DriverNumber = model.DriverNumber;
-            driver.TeamId = model.TeamId;
-            driver.ImageUrl = model.ImageUrl;
-
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction(nameof(StatusActiveOrAllDrivers));
-
+            return RedirectToAction("StatusActiveOrAllDrivers");
         }
+
 
         [Authorize(Roles = "Administrator")]
         [HttpGet]
-        public IActionResult CreateDriver()
+        public async Task<IActionResult> CreateDriver()
         {
-            var model = new DriverEditViewModel
-            {
-                Teams = _context.Teams
-                    .Select(t => new TeamListViewModel
-                    {
-                        TeamId = t.Id,
-                        TeamName = t.Name
-                    })
-                    .ToList()
-            };
-
-            return View("CreateDriver", model); 
+            var teams = await _mediator.Send(new GetAllTeamsQuery());
+            return View(new CreateDriverCommand("", 0, 0, "", teams));
         }
 
         [Authorize(Roles = "Administrator")]
         [HttpPost]
-        public async Task<IActionResult> CreateDriver(DriverEditViewModel model)
+        public async Task<IActionResult> CreateDriver(CreateDriverCommand command)
         {
-            if (!ModelState.IsValid)
-            {
-                model.Teams = _context.Teams
-                    .Select(t => new TeamListViewModel
-                    {
-                        TeamId = t.Id,
-                        TeamName = t.Name
-                    })
-                    .ToList();
-
-                return View(model);
-            }
-
-            var existingDriver = await _context.Drivers
-                .FirstOrDefaultAsync(d => d.DriverNumber == model.DriverNumber);
-
-            if (existingDriver != null)
+            if (!ModelState.IsValid || await _mediator.Send(command) == null)
             {
                 ModelState.AddModelError("DriverNumber", "The driver number is already taken.");
-                model.Teams = _context.Teams
-                    .Select(t => new TeamListViewModel
-                    {
-                        TeamId = t.Id,
-                        TeamName = t.Name
-                    })
-                    .ToList();
-
-                return View(model);
+                command.Teams = await _mediator.Send(new GetAllTeamsQuery());
+                return View(command);
             }
+            return RedirectToAction("StatusActiveOrAllDrivers");
 
-            var driver = new Driver
-            {
-                Name = model.DriverName,
-                DriverNumber = model.DriverNumber,
-                TeamId = model.TeamId,
-                ImageUrl = model.ImageUrl
-            };
-
-            _context.Drivers.Add(driver);
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction(nameof(StatusActiveOrAllDrivers));
         }
 
+        [HttpGet]
+        public async Task<IActionResult> ConfirmDeleteDriver(int id)
+        {
+            var driver = await _mediator.Send(new GetDriverByIdQuery(id));
+
+            if (driver == null) return NotFound();
+
+            var viewModel = new DriverListViewModel
+            {
+                Id = driver.Id,
+                Name = driver.Name,
+                DriverNumber = driver.DriverNumber,
+                TeamName = driver.Team?.Name ?? "Unknown Team",
+                ImageUrl = driver.ImageUrl,
+                IsRetired = driver.IsRetired
+            };
+
+            return View(viewModel);
+        }
 
         [Authorize(Roles = "Administrator")]
-        [HttpGet]
-        public IActionResult ConfirmDeleteDriver(int id)
+        [HttpPost]
+        public async Task<IActionResult> DeleteDriver(int id)
         {
-            var driver = _context.Drivers
-                .Select(d => new DriverListViewModel
-                {
-                    Id = d.Id,
-                    DriverNumber = d.DriverNumber,
-                    Name = d.Name,
-                    TeamName = d.Team.Name,
-                    ImageUrl = d.ImageUrl
-                })
-                .FirstOrDefault(d => d.Id == id);
+            var result = await _mediator.Send(new DeleteDriverCommand(id));
 
-            if (driver == null)
+            if (!result)
             {
                 return NotFound();
             }
 
-            return View(driver);
+            return RedirectToAction("StatusActiveOrAllDrivers");
         }
-
-        [Authorize(Roles = "Administrator")]
-        [HttpPost]
-        public IActionResult DeleteDriver(int id)
-        {
-            if (_context == null)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Database context is not available.");
-            }
-
-            try
-            {
-                var driver = _context.Drivers.Find(id);
-                if (driver == null)
-                {
-                    return NotFound();
-                }
-
-                if (driver.IsRetired)
-                {
-                    return BadRequest();
-                }
-
-                _context.Drivers.Remove(driver);
-                _context.SaveChanges();
-
-                if (TempData != null)
-                {
-                    TempData["SuccessMessage"] = "Driver deleted successfully.";
-                }
-
-                return RedirectToAction(nameof(StatusActiveOrAllDrivers));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while deleting the driver.");
-            }
-        }
-
 
         [Authorize(Roles = "Administrator, Moderator")]
         [HttpPost]
         public async Task<IActionResult> ToggleDriverStatus(int id)
         {
-            var driver = await _context.Drivers.FindAsync(id);
-            if (driver == null)
+            var result = await _mediator.Send(new ToggleDriverStatusCommand(id));
+
+            if (!result)
             {
-                return NotFound();
+                TempData["ErrorMessage"] = "Driver not found or could not change status.";
+                return RedirectToAction("StatusActiveOrAllDrivers");
             }
 
-            driver.IsRetired = !driver.IsRetired;
-            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Driver status updated successfully.";
+            return RedirectToAction("StatusActiveOrAllDrivers");
 
-            TempData["SuccessMessage"] = $"Driver status updated to {(driver.IsRetired ? "Retired" : "Active")}.";
-
-            var driverListViewModels = await _context.Drivers
-                .Select(d => new DriverListViewModel
-            {
-                Id = d.Id,
-                DriverNumber = d.DriverNumber,
-                Name = d.Name,
-                TeamName = d.Team.Name,
-                ImageUrl = d.ImageUrl,
-                IsRetired = d.IsRetired
-            }).ToListAsync();
-
-            return View("StatusActiveOrAllDrivers", driverListViewModels);
         }
-
 
         [Authorize(Roles = "Administrator, Moderator")]
         public async Task<IActionResult> StatusActiveOrAllDrivers(bool showActiveOnly = false)
         {
-            IQueryable<Driver> drivers = _context.Drivers;
-            if (showActiveOnly)
-            {
-                drivers = drivers.Where(d => !d.IsRetired);
-            }
-
-            var driverListViewModels = await drivers.Select(d => new DriverListViewModel
-            {
-                Id = d.Id,
-                DriverNumber = d.DriverNumber,
-                Name = d.Name,
-                TeamName = d.Team.Name,
-                ImageUrl = d.ImageUrl,
-                IsRetired = d.IsRetired
-            }).ToListAsync();
-
-            ViewBag.ShowActiveOnly = showActiveOnly;
-            return View(driverListViewModels);
+            var drivers = await _mediator.Send(new GetDriversListViewModelQuery(showActiveOnly));
+            return View(drivers);
         }
     }
 }

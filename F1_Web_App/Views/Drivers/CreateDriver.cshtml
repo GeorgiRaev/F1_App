@@ -1,4 +1,4 @@
-﻿@model F1_Web_App.Models.DriverEditViewModel
+﻿@model F1_Web_App.Application.Drivers.Commands.CreateDriverCommand
 
 @{
     ViewData["Title"] = "Create Driver";
@@ -11,9 +11,9 @@
     <div class="col-sm-12 offset-lg-2 col-lg-8 offset-xl-3 col-xl-6">
         <form asp-action="CreateDriver" method="post">
             <div class="mb-3">
-                <label asp-for="DriverName" class="form-label-add-edit">Driver Name</label>
-                <input asp-for="DriverName" class="form-control" aria-required="true" />
-                <span asp-validation-for="DriverName" class="text-danger"></span>
+                <label asp-for="Name" class="form-label-add-edit">Driver Name</label>
+                <input asp-for="Name" class="form-control" aria-required="true" />
+                <span asp-validation-for="Name" class="text-danger"></span>
             </div>
             <div class="mb-3">
                 <label asp-for="DriverNumber" class="form-label-add-edit">Driver Number</label>

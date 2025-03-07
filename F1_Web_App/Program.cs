@@ -2,6 +2,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 
 namespace F1_Web_App
 {
@@ -30,8 +31,9 @@ namespace F1_Web_App
 
             builder.Services.AddControllersWithViews();
 
-            // Registration MediatR
-            builder.Services.AddMediatR(typeof(Program).Assembly);
+
+            builder.Services.AddMediatR(Assembly.GetExecutingAssembly());
+
 
             var app = builder.Build();
 

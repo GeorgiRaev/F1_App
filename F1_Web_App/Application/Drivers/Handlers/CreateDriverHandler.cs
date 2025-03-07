@@ -18,6 +18,15 @@ namespace F1_Web_App.Application.Drivers.Handlers
 
         public async Task<Driver?> Handle(CreateDriverCommand request, CancellationToken cancellationToken)
         {
+            
+            var teams = await _context.Teams
+                .Select(t => new TeamListViewModel
+                {
+                    TeamId = t.Id,
+                    TeamName = t.Name
+                })
+                .ToListAsync(cancellationToken);
+
             var existingDriver = await _context.Drivers
                 .FirstOrDefaultAsync(d => d.DriverNumber == request.DriverNumber, cancellationToken);
             if (existingDriver != null) return null;

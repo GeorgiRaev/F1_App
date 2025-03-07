@@ -1,7 +1,5 @@
 ﻿using MediatR;
 
-namespace F1_Web_App.Application.Drivers.Commands;
-
 public class EditDriverCommand : IRequest<bool>
 {
     public int Id { get; set; }
@@ -9,6 +7,8 @@ public class EditDriverCommand : IRequest<bool>
     public int DriverNumber { get; set; }
     public int TeamId { get; set; }
     public string ImageUrl { get; set; }
+
+    public EditDriverCommand() { }
 
     public EditDriverCommand(int id, string name, int driverNumber, int teamId, string imageUrl)
     {
